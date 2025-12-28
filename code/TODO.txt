@@ -1,0 +1,19 @@
+powtórka intruz w sensorze
+zubry jakoś sensownie chodzą?
+analyzer wysyła  drony czy światło po 2 potwierdzeniach
+scierzka w workerze?
+w analyzer dać liste sensorów zastanawiam się czy trzeba
+
+testy
+
+
+# założenia
+
+Defender 1
+Analyzer 1
+analyzer jest mózgiem
+defender steruje  dronami i światłami
+analyuzer wysyła raporty głownemu workerowi raporty
+analyzer  wysyła prośbe o pomoc workerowi nie defender
+
+
