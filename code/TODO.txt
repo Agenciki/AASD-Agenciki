@@ -1,6 +1,6 @@
 analyzer wysyła  drony czy światło po 2 potwierdzeniach
 scierzka w workerze?
-w analyzer dać liste sensorów zastanawiam się czy trzeba
+w analyzer dać liste sensorów zastanawiam się czy trzeba bo i tak wykrywa
 
 testy
 

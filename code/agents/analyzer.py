@@ -112,18 +112,41 @@ class AnalyzerAgent(spade.agent.Agent):
         incident = self.incident_memory.get(s_id)
 
         # eskalacja to samo zagrozenie w ciągu 20 s
-        if incident and (now - incident["last_time"] < 20):
-            if not incident["escalated"]:
-                print(f"[Analyzer] ESKALACJA: {danger} nadal w {s_id}. Ślemy drona.")
-                await self.report_to_worker("ESCALATION_STARTED", {"danger": danger, "sensor": s_id})
-                await self.send_to_defender(danger, coords, s_id, force_drone=True)
-                self.incident_memory[s_id]["escalated"] = True
-        else:
+        
+        if not incident:
+            #  ŚWIATŁO
             print(f"[Analyzer] Wykryto {danger} w {s_id}. Próba stacjonarna.")
-            self.incident_memory[s_id] = {"last_time": now, "escalated": False}
+            self.incident_memory[s_id] = {
+                "last_time": now, 
+                "start_time": now, # Dodajemy stały czas rozpoczęcia incydentu
+                "escalated": False,
+                "worker_called": False
+            }
             await self.report_to_worker("NEW_INCIDENT", {"danger": danger, "location": coords})
             await self.send_to_defender(danger, coords, s_id, force_drone=False)
+        
+        else:
+            # ile czasu trwa problem
+            duration = now - incident["start_time"]
 
+            #  40 sekund  człowiek
+            if duration > 40:
+                if not incident.get("worker_called"):
+                    print(f"[Analyzer] !!! KRYTYCZNE !!! {danger} w {s_id} trwa {round(duration)}s. Wzywam PRACOWNIKA!")
+                    await self.dispatch_nearest_worker(coords, is_bison=False)
+                    incident["worker_called"] = True
+                    # Opcjonalnie: del self.incident_memory[s_id] jeśli chcesz całkiem zamknąć
+                return
+
+        # 20sekund dron
+            elif duration > 20:
+                if not incident["escalated"]:
+                    print(f"[Analyzer] ESKALACJA: {danger} nadal w {s_id} ({round(duration)}s). Ślemy drona.")
+                    await self.report_to_worker("ESCALATION_STARTED", {"danger": danger, "sensor": s_id})
+                    await self.send_to_defender(danger, coords, s_id, force_drone=True)
+                    incident["escalated"] = True
+    
+    
     async def send_to_defender(self, danger, coords, s_id, force_drone):
         msg = Message(to=self.defender_jid)
         msg.set_metadata("performative", "request")
@@ -170,7 +193,7 @@ class AnalyzerAgent(spade.agent.Agent):
                     meta = content.get("metadata", {})
                     detected = meta.get("detected_object") or meta.get("audio_type")
 
-                    if detected and detected not in ["none"]:
+                    if detected and detected not in ["none","bison_roar","bison"]:
                         await self.agent.process_incident(s_id, detected, coords)
                     else:
                         if s_id in self.agent.incident_memory:

@@ -7,17 +7,25 @@ import random
 from spade.behaviour import CyclicBehaviour, PeriodicBehaviour
 
 class WorkerAgent(spade.agent.Agent):
-    def __init__(self, jid, password, analyzer_jid, *args, **kwargs):
+    def __init__(self, jid, password, analyzer_jid,forced_coords=None, *args, **kwargs):
         super().__init__(jid, password, *args, **kwargs)
         self.analyzer_jid = analyzer_jid 
+        self.forced_coords = forced_coords
 
     class SendLocationBehav(PeriodicBehaviour):
         async def run(self):
+            if self.agent.forced_coords:
+                x_pos = self.agent.forced_coords["x"]
+                y_pos = self.agent.forced_coords["y"]
+            else:
+                x_pos = round(random.uniform(0, 100), 2)
+                y_pos = round(random.uniform(0, 100), 2)
+                
             payload = {
                 "worker_name": str(self.agent.jid),
                  "coords": {
-                    "x": round(random.uniform(0, 100), 2),
-                    "y": round(random.uniform(0, 100), 2)
+                    "x": x_pos,
+                    "y": y_pos
                 }, 
                 "timestamp": time.time()
             }
@@ -26,7 +34,7 @@ class WorkerAgent(spade.agent.Agent):
             msg.set_metadata("protocol", "fipa-query") 
             msg.body = json.dumps(payload)
             await self.send(msg)
-            print(f"[Worker] Wysłałem swoją lokalizację do Analyzera.")
+            print(f"[Worker] [{self.agent.jid}] Wysłałem swoją lokalizację do Analyzera. [{payload['coords']['x']}, {payload['coords']['y']}]")
 
     
     class ReceiveAllCommunications(CyclicBehaviour):
@@ -37,7 +45,7 @@ class WorkerAgent(spade.agent.Agent):
                 perf = msg.get_metadata("performative")
                 
                 if "health" in content:
-                    print(f"[Worker] Dane o żubrze: {content['name']} jest {content['health']}.")
+                    print(f"[Worker] [{self.agent.jid}] Dane o żubrze: {content['name']} jest {content['health']}. [{content['coords']['x']}, {content['coords']['y']}]")
                 
                 #  Analyzera 
                 elif perf == "inform":
@@ -54,7 +62,7 @@ class WorkerAgent(spade.agent.Agent):
                         target_jid = content.get("target_jid")
                         
                         if is_bison and target_jid:
-                            print(f"\n[Worker] !!! INTERWENCJA: Żubr {target_jid} na {coords}. Idę go przegonić! !!!")
+                            print(f"\n[Worker] [{self.agent.jid}] !!! INTERWENCJA: Żubr {target_jid} na {coords}. Idę go przegonić! !!!")
                             
                             # Tworzymy wiadomość skierowaną bezpośrednio do żubra
                             msg_to_bison = Message(to=target_jid) # Adres żubra
@@ -63,9 +71,9 @@ class WorkerAgent(spade.agent.Agent):
                             msg_to_bison.body = json.dumps({"action": "worker_intervention"})
                             
                             await self.send(msg_to_bison)
-                            print(f"[Worker] Posłałem sygnał odstraszający do żubra.")
+                            print(f"[Worker] [{self.agent.jid}] Posłałem sygnał odstraszający do żubra.")
                         else:
-                            print(f"\n[Worker] !!! ALARM: Intruz na {coords}. Ruszam na miejsce! !!!")
+                            print(f"\n[Worker]  [{self.agent.jid}]!!! ALARM: Intruz na {coords}. Ruszam na miejsce! !!!")
                                 
     async def setup(self):
         print(f"WorkerAgent {self.jid} gotowy do pracy.")
