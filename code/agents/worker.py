@@ -48,14 +48,25 @@ class WorkerAgent(spade.agent.Agent):
 
                 # Pomocy
                 elif perf == "request":
-                    
                     if content.get("type") == "HELP_REQUIRED":
                         coords = content.get("coords")
-                        print(f"\n[Worker] !!! ALARM KRYTYCZNY !!!")
-                        print(f" -> Analyzer wezwał Cię do wsparcia drona!")
-                        print(f" -> Lokalizacja intruza: {coords}")
-                        print(f" -> Ruszaj na miejsce interwencji!")
-                
+                        is_bison = content.get("is_bison", False) # Pobieramy Twoją nową flagę
+                        target_jid = content.get("target_jid")
+                        
+                        if is_bison and target_jid:
+                            print(f"\n[Worker] !!! INTERWENCJA: Żubr {target_jid} na {coords}. Idę go przegonić! !!!")
+                            
+                            # Tworzymy wiadomość skierowaną bezpośrednio do żubra
+                            msg_to_bison = Message(to=target_jid) # Adres żubra
+                            msg_to_bison.set_metadata("performative", "request")
+                            # Wysyłamy akcję, którą żubr już potrafi rozpoznać
+                            msg_to_bison.body = json.dumps({"action": "worker_intervention"})
+                            
+                            await self.send(msg_to_bison)
+                            print(f"[Worker] Posłałem sygnał odstraszający do żubra.")
+                        else:
+                            print(f"\n[Worker] !!! ALARM: Intruz na {coords}. Ruszam na miejsce! !!!")
+                                
     async def setup(self):
         print(f"WorkerAgent {self.jid} gotowy do pracy.")
          

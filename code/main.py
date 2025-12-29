@@ -1,6 +1,6 @@
 import asyncio
-from bison import *
-from worker import *
+from agents.bison import *
+from agents.worker import *
 
 WORKER_JID = "worker@localhost"
 BISON_JID = "bison@localhost"

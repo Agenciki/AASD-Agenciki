@@ -6,7 +6,7 @@ import time
 from spade.message import Message
 from spade.behaviour import CyclicBehaviour
 import math
-import config
+from . import config
 
 RESERVE_CONFIG = config.RESERVE_CONFIG
 
@@ -31,7 +31,7 @@ class AnalyzerAgent(spade.agent.Agent):
             "data": details
         }
         msg.body = json.dumps(payload)
-        await self.send(msg)
+        await self.container.send(msg, self)
         print(f"[Analyzer] Raport ({report_type}) wysłany do głównego Workera.")
 
     async def handle_defender_feedback(self, msg):
@@ -42,7 +42,7 @@ class AnalyzerAgent(spade.agent.Agent):
         elif data.get("success"):
             print("[Analyzer] Akcja zakończona sukcesem.")
 
-    async def dispatch_nearest_worker(self, danger_coords):
+    async def dispatch_nearest_worker(self, danger_coords,is_bison=False,target_jid=None):
         if not self.workers_registry:
             print("[Analyzer] Brak dostępnych pracowników w rejestrze!")
             return
@@ -62,19 +62,34 @@ class AnalyzerAgent(spade.agent.Agent):
             print(f"[Analyzer] WEZWANIE: {best_worker} jest najbliżej ({round(min_dist,1)}m).")
             msg = Message(to=best_worker)
             msg.set_metadata("performative", "request")
-            msg.body = json.dumps({"type": "HELP_REQUIRED", "coords": danger_coords})
-            await self.send(msg)
+            msg.body = json.dumps({"type": "HELP_REQUIRED", "coords": danger_coords,"is_bison":is_bison,"target_jid": target_jid})
+            await self.container.send(msg, self)
 
-    async def check_bison_safety(self, data):
-        coords = data.get("coords")
-        name = data.get("name", "Unknown Bison")
-        if (coords["x"] < RESERVE_CONFIG["X_MIN"] or coords["x"] > RESERVE_CONFIG["X_MAX"] or 
-            coords["y"] < RESERVE_CONFIG["Y_MIN"] or coords["y"] > RESERVE_CONFIG["Y_MAX"]): # to globalnie
-            details = {"name": name, "coords": coords, "reason": "out_of_bounds"}
-            print(f"[Analyzer] ALERT: Żubr {name} poza rezerwatem!")
-            await self.report_to_worker("BISON_ESCAPE", details)
-            await self.send_to_defender("bison_escape", coords, None, force_drone=True)
+    async def check_bison_safety(self, data,sender_jid):
+            coords = data.get("coords")
+            name = data.get("name", "Unknown Bison")
+            
+            # Sprawdzenie granic
+            if (coords["x"] < RESERVE_CONFIG["X_MIN"] or coords["x"] > RESERVE_CONFIG["X_MAX"] or 
+                coords["y"] < RESERVE_CONFIG["Y_MIN"] or coords["y"] > RESERVE_CONFIG["Y_MAX"]):
+                
+                now = time.time()
+                # Tworzymy klucz dla pamięci incydentu żubra
+                incident_key = f"ESCAPE_{name}"
+                incident = self.incident_memory.get(incident_key)
 
+                # Jeśli minęło np. 15 sekund od pierwszego alertu i żubr nadal jest poza...
+                if incident and (now - incident["last_time"] > 15):
+                    print(f"[Analyzer] !!! ŻUBR {name} IGNORUJE DRONY !!! Wzywam najbliższego pracownika.")
+                    await self.dispatch_nearest_worker(coords, is_bison=True, target_jid=sender_jid)
+                    # Czyścimy pamięć, by nie spamować wezwaniami
+                    del self.incident_memory[incident_key]
+                elif not incident:
+                    print(f"[Analyzer] ALERT: Żubr {name} poza rezerwatem! Wysyłam drona.")
+                    self.incident_memory[incident_key] = {"last_time": now, "escalated": False}
+                    await self.report_to_worker("BISON_ESCAPE", {"name": name, "coords": coords})
+                    await self.send_to_defender("bison_escape", coords, None, force_drone=True)
+        
     async def process_incident(self, s_id, danger, coords):
 
         if danger == "human":
@@ -118,7 +133,7 @@ class AnalyzerAgent(spade.agent.Agent):
             "coords": coords,
             "force_drone": force_drone
         })
-        await self.send(msg)
+        await self.container.send(msg, self)
         print(f"[Analyzer] Zadanie dla Defendera: {danger} (Wymuś drona: {force_drone})")
 
     # -- behav
@@ -143,9 +158,9 @@ class AnalyzerAgent(spade.agent.Agent):
                     }
                     return
 
-                # Żubr też poprawić i sprawdzać pozycje
+                # Żubr 
                 if "health" in content:
-                    await self.agent.check_bison_safety(content)
+                    await self.agent.check_bison_safety(content,str(msg.sender))
                     return
 
                 #   Sensor
