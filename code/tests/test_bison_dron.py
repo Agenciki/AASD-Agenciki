@@ -31,7 +31,7 @@ async def main():
 
     #  Start Żubra w trybie "Ucieczka "
     # Podaje target_jid Defendera w Analyzerze, aby wiedział kogo ścigać
-    bison = BisonAgent(B_JID, PW, name="UpartyZubr", 
+    bison = BisonAgent(B_JID, PW, name="Pukan", 
                        observers=[A_JID], 
                        forced_coords=[150, 150], 
                        ignore_drones=False)
