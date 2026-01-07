@@ -79,7 +79,7 @@ class AnalyzerAgent(spade.agent.Agent):
                 incident = self.incident_memory.get(incident_key)
 
                 # Jeśli minęło np. 15 sekund od pierwszego alertu i żubr nadal jest poza...
-                if incident and (now - incident["last_time"] > 15):
+                if incident and (now - incident["last_time"] > 20):
                     print(f"[Analyzer] !!! ŻUBR {name} IGNORUJE DRONY !!! Wzywam najbliższego pracownika.")
                     await self.dispatch_nearest_worker(coords, is_bison=True, target_jid=sender_jid)
                     # Czyścimy pamięć, by nie spamować wezwaniami
@@ -88,7 +88,7 @@ class AnalyzerAgent(spade.agent.Agent):
                     print(f"[Analyzer] ALERT: Żubr {name} poza rezerwatem! Wysyłam drona.")
                     self.incident_memory[incident_key] = {"last_time": now, "escalated": False}
                     await self.report_to_worker("BISON_ESCAPE", {"name": name, "coords": coords})
-                    await self.send_to_defender("bison_escape", coords, None, force_drone=True)
+                    await self.send_to_defender("bison_escape", coords, None, force_drone=True,target_jid=sender_jid)
         
     async def process_incident(self, s_id, danger, coords):
 
@@ -147,14 +147,15 @@ class AnalyzerAgent(spade.agent.Agent):
                     incident["escalated"] = True
     
     
-    async def send_to_defender(self, danger, coords, s_id, force_drone):
+    async def send_to_defender(self, danger, coords, s_id, force_drone,target_jid=None):
         msg = Message(to=self.defender_jid)
         msg.set_metadata("performative", "request")
         msg.body = json.dumps({
             "danger_type": danger,
             "sensor_jid": str(s_id) if s_id else None,
             "coords": coords,
-            "force_drone": force_drone
+            "force_drone": force_drone,
+            "target_jid": str(target_jid) if target_jid else None
         })
         await self.container.send(msg, self)
         print(f"[Analyzer] Zadanie dla Defendera: {danger} (Wymuś drona: {force_drone})")

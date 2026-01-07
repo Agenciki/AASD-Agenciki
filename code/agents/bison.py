@@ -26,7 +26,9 @@ class BisonAgent(spade.agent.Agent):
 
         async def run(self):
             if self.agent.forced_coords:
-                x_pos, y_pos = self.agent.forced_coords    
+                x_pos, y_pos = self.agent.forced_coords
+            elif hasattr(self.agent, "current_coords") and self.agent.current_coords:
+                x_pos, y_pos = self.agent.current_coords       
             else:
                 x_pos = round(random.uniform(
                     RESERVE_CONFIG["X_MIN"] - RESERVE_CONFIG["ESCAPE_MARGIN"], 
@@ -61,7 +63,7 @@ class BisonAgent(spade.agent.Agent):
                 except Exception as e:
                     print(f"Błąd wysyłki do {receiver_jid}: {e}")
 
-                print(f"[{self.agent.bison_name}] Dane rozesłane do {len(self.agent.observers)} odbiorców.")
+                print(f"[{self.agent.bison_name}] Dane rozesłane do {len(self.agent.observers)} odbiorców. {payload['coords']} ")
     
     
     
@@ -77,7 +79,7 @@ class BisonAgent(spade.agent.Agent):
                     
                     # Logika logika dla drona
                     if not is_worker:
-                        success_chance = 0.7 
+                        success_chance = 0.7
                         if self.agent.ignore_drones:
                             success_chance = 0.0 # Wymuszony upór dla testów
                             print(f"[{self.agent.bison_name}] TRYB TESTOWY: Ignoruję drona.")
