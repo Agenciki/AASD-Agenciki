@@ -21,7 +21,7 @@ class DefenderAgent(spade.agent.Agent):
         
         await self.container.send(msg, self)
         
-        
+        # Ntutaj coś nie tak
         return True
 
     async def activate_drones(self, coords, target_type, target_jid=None):
@@ -54,7 +54,6 @@ class DefenderAgent(spade.agent.Agent):
                     coords = data.get("coords")
                     sensor_jid = data.get("sensor_jid")
                     force_drone = data.get("force_drone", False)
-                    target_jid = data.get("target_jid")
 
                     print(f"\n[Defender] >>> NOWE ZADANIE: {danger_type} w kwadracie {coords}")
                     
@@ -64,7 +63,7 @@ class DefenderAgent(spade.agent.Agent):
                     # dron albo sensor
                     if force_drone:
                         
-                        success = await self.agent.activate_drones(coords, danger_type,target_jid=target_jid)
+                        success = await self.agent.activate_drones(coords, danger_type)
                         if not success:
                             print("[Defender] ! PORAŻKA DRONA ! ")
                             critical_alarm = True
